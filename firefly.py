@@ -9,21 +9,28 @@ def convert_to_bounds(bounds, positions):
   
   return values
 
+def distance(i, j):
+  return np.linalg.norm(i - j)
+
 class Firefly:
 
   def __init__(self,
     function,
     population,
     bounds,
+    beta_0,
     light_absorption,
-    randomisation_param):
+    randomisation_param,
+    final_randomisation_param = None):
 
     self.function = function
     self.population = population
     self.limits = bounds
     self.bounds = np.array([[0,1]] * len(bounds))
+    self.beta_0 = beta_0
     self.gamma = light_absorption
     self.alpha = randomisation_param
+    self.alpha_inf = final_randomisation_param
     self.position = None
     self.attractiveness = None
     self.g_fitness = None
@@ -35,9 +42,27 @@ class Firefly:
     upper_bounds = self.bounds[:,1]
     self.position = np.random.uniform(lower_bounds, upper_bounds, [self.population, len(lower_bounds)])
     params = convert_to_bounds(self.limits, self.position)
-    self.attractiveness = np.array(list(map(self.function, params)))
+    self.attractiveness = np.fromiter(map(self.function, params), dtype=np.float32)
     self.g_fitness = self.attractiveness.max
     self.g_best = self.position[np.argmin(self.attractiveness)]
 
+  def step(self, steps=1):
 
-    
+    for step in range(steps):
+      #update randomisation parameter
+      self.alpha *= 0.98
+
+      for i,pos in enumerate(self.position):
+
+        for j,firefly in enumerate(self.position):
+
+          if self.attractiveness[j] < self.attractiveness[i]:
+            exponent = -self.gamma * distance(i,j)**2
+            add = np.array(self.beta_0 * np.exp(exponent) * (firefly - pos) + self.alpha*np.random.uniform(-0.5,0.5,len(self.bounds)))
+            self.position[i] = self.position[i] + add 
+      params = convert_to_bounds(self.limits, self.position)
+      self.attractiveness = np.fromiter(map(self.function, params), dtype=np.float32)
+      g_best = self.attractiveness.min()
+      print("step{}: swarm fitness = {}".format(step, g_best))
+
+
